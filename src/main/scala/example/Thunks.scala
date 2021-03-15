@@ -9,7 +9,7 @@ import scala.collection.mutable.ImmutableBuilder
 
 import cats.Eval
 import cats.Foldable
-
+import cats.syntax.foldable._
 sealed trait LoosyList[+A]
     extends LinearSeq[A]
     with LinearSeqOps[A, LoosyList, LoosyList[A]]
@@ -69,13 +69,10 @@ object Thunks {
 
   def xs = LoosyList.iterate(0L)(_ + 1)
 
-  def sumUntil[T[_]](xs: => T[Long], limit: Long)(implicit
-      T: Foldable[T]
-  ): Long =
-    T.foldRight[Long, Long => Eval[Long]](xs, Eval.now(x => Eval.now(x)))(
-      (x, t) =>
-        if (x > limit) Eval.always(x => Eval.now(x))
-        else Eval.always(s => t.flatMap(f => f(s + x)))
+  def sumUntil[T[_]: Foldable](xs: => T[Long], limit: Long): Long =
+    xs.foldRight[Long => Eval[Long]](Eval.now(x => Eval.now(x)))((x, t) =>
+      if (x > limit) Eval.always(x => Eval.now(x))
+      else Eval.always(s => t.flatMap(f => f(s + x)))
     ).value(0)
       .value
 
